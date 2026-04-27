@@ -7,18 +7,30 @@ router.get('/nearby', async (req, res) => {
   const { lat, lng, type } = req.query; // type can be 'Ghar Ka Khana' or 'Restaurant'
 
   try {
-    const nearbyFood = await FoodItem.find({
-      category: type,
-      location: {
+    // 1. Start with an empty query object
+    let query = {};
+    
+    // 2. Filter by category if provided
+    if (type && type !== 'All') {
+      query.category = type;
+    }
+
+    // 3. ONLY add the $near location filter if lat and lng are valid numbers!
+    if (lat && lng && lat !== "" && lng !== "") {
+      query.location = {
         $near: {
           $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
           $maxDistance: 5000 // 5km ke radius mein search karega
         }
-      }
-    }).populate('provider', 'name phone');
+      };
+    }
+
+    // 4. Fetch from database using the safe query
+    const nearbyFood = await FoodItem.find(query).populate('provider', 'name phone');
 
     res.json(nearbyFood);
   } catch (error) {
+    console.error("Food Route Error:", error);
     res.status(500).json({ message: "Search fail ho gaya", error: error.message });
   }
 });

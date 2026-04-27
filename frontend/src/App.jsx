@@ -1,11 +1,11 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { theme } from './styles/theme';
 import styled from 'styled-components';
 import Auth from './pages/Auth';
 import Home from './pages/Home';
-import DashboardHub from './pages/DashboardHub'; // NEW: Imported the Traffic Controller
+import DashboardHub from './pages/DashboardHub'; 
 
 const AppContainer = styled.div`
   background-color: ${(props) => props.theme.colors.background};
@@ -49,7 +49,7 @@ const SearchBar = styled.input`
   }
 
   @media (max-width: 768px) {
-    display: none; // Hide on mobile for now to save space
+    display: none; 
   }
 `;
 
@@ -68,7 +68,6 @@ const NavLink = styled(Link)`
   &:hover { color: ${(props) => props.theme.colors.primary}; }
 `;
 
-// Added the Logout Button styles
 const LogoutButton = styled.button`
   background: transparent;
   border: 1px solid ${(props) => props.theme.colors.primary};
@@ -85,52 +84,80 @@ const LogoutButton = styled.button`
   }
 `;
 
+// --- NEW: TOP NAV COMPONENT (THE SENDER) ---
+// We extracted this so it can safely use the 'useNavigate' hook inside the Router!
+const TopNav = ({ userInfo, handleLogout }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Keep search box text in sync if they hit "Back" in the browser
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchTerm(params.get('search') || "");
+  }, [location.search]);
+
+  // Push the search term to the URL instantly
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    
+    if (value.trim() === "") {
+      navigate('/'); // Clear search, go to normal home
+    } else {
+      navigate(`/?search=${encodeURIComponent(value)}`); // Attach search query to URL
+    }
+  };
+
+  return (
+    <Navbar>
+      <Brand to="/">CampusHub</Brand>
+      
+      <SearchBar 
+        placeholder="Search for food, books, services, or tutors..." 
+        value={searchTerm}
+        onChange={handleSearchChange} // Wired up!
+      />
+
+      <NavLinks>
+        <NavLink to="/">Home</NavLink>
+        {userInfo ? (
+          <>
+            <NavLink to="/dashboard">Profile</NavLink>
+            <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
+          </>
+        ) : (
+          <NavLink to="/auth">Login / Register</NavLink>
+        )}
+        <div style={{ cursor: 'pointer', fontSize: '1.2rem' }}>🛒</div>
+      </NavLinks>
+    </Navbar>
+  );
+};
+
 function App() {
   const userInfo = JSON.parse(localStorage.getItem('userInfo'));
 
-  // Added the Logout Function logic
   const handleLogout = () => {
     localStorage.removeItem('userInfo');
-    window.location.href = '/auth'; // Redirect to login
+    window.location.href = '/auth'; 
   };
 
   return (
     <ThemeProvider theme={theme}>
       <Router>
         <AppContainer>
-          <Navbar>
-            <Brand to="/">CampusHub</Brand>
-            
-            <SearchBar placeholder="Search for food, books, services, or tutors..." />
-
-            <NavLinks>
-              <NavLink to="/">Home</NavLink>
-              
-              {/* Conditional rendering based on whether user is logged in */}
-              {userInfo ? (
-                <>
-                  {/* Changed from /profile to /dashboard */}
-                  <NavLink to="/dashboard">Profile</NavLink>
-                  <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
-                </>
-              ) : (
-                <NavLink to="/auth">Login / Register</NavLink>
-              )}
-              
-              {/* Fake cart icon for e-commerce feel */}
-              <div style={{ cursor: 'pointer', fontSize: '1.2rem' }}>🛒</div>
-            </NavLinks>
-          </Navbar>
+          
+          {/* Replaced old Navbar with our new connected TopNav */}
+          <TopNav userInfo={userInfo} handleLogout={handleLogout} />
 
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
-            
-            {/* NEW: Traffic Controller routes */}
             <Route path="/dashboard" element={<DashboardHub />} />
-            <Route path="/profile" element={<DashboardHub />} /> {/* Fallback for old links */}
-            
+            <Route path="/profile" element={<DashboardHub />} /> 
           </Routes>
+
         </AppContainer>
       </Router>
     </ThemeProvider>

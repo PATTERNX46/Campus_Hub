@@ -17,9 +17,10 @@ const Card = styled.div`
   }
 `;
 
+// FIXED: Changed props.img to props.$img to fix the React warning
 const ImageArea = styled.div`
   height: 160px;
-  background-image: url(${(props) => props.img});
+  background-image: url(${(props) => props.$img});
   background-size: cover;
   background-position: center;
   background-color: ${(props) => props.theme.colors.secondary}; // Fallback
@@ -90,18 +91,30 @@ const ActionButton = styled.button`
   }
 `;
 
-const ProductCard = ({ title, subtext, price, badge, img, btnText }) => {
+const ProductCard = ({ title, subtext, price, badge, img, btnText, onClick }) => {
+  
+  // Smart Price Formatter: Prevents "₹N/A" or "₹Menu inside"
+  const formatPrice = (p) => {
+    if (!p) return '';
+    const pStr = String(p);
+    if (pStr === 'N/A' || pStr.toLowerCase().includes('menu') || pStr.toLowerCase().includes('essentials')) {
+      return pStr; // Return plain text without the rupee symbol
+    }
+    return pStr.startsWith('₹') ? pStr : `₹${pStr}`; // Add rupee symbol to numbers
+  };
+
   return (
     <Card>
-      <ImageArea img={img}>
+      {/* FIXED: Passed $img instead of img to prevent it from leaking into the DOM */}
+      <ImageArea $img={img}>
         {badge && <Badge>{badge}</Badge>}
       </ImageArea>
       <Content>
         <Title>{title}</Title>
         <SubText>{subtext}</SubText>
         <PriceRow>
-          <Price>₹{price}</Price>
-          <ActionButton>{btnText || 'Add'}</ActionButton>
+          <Price>{formatPrice(price)}</Price>
+          <ActionButton onClick={onClick}>{btnText || 'Add'}</ActionButton>
         </PriceRow>
       </Content>
     </Card>

@@ -11,17 +11,16 @@ router.get('/nearby', async (req, res) => {
     let query = { status: 'Approved' };
 
     // 2. Filter by Category (if they clicked 'Tutors', 'Restaurant', etc.)
-    // If type is 'All' or undefined, it will skip this and return everything
     if (type && type !== 'All') {
       query.shopType = type;
     }
 
-    // 3. Optional GPS Filtering: Only use $near if lat & lng actually exist!
+    // 3. Optional GPS Filtering
     if (lat && lng) {
       query.location = {
         $near: {
           $geometry: { type: "Point", coordinates: [parseFloat(lng), parseFloat(lat)] },
-          $maxDistance: 5000 // Increased to 5km radius to be safe
+          $maxDistance: 5000 // 5km radius
         }
       };
     }
@@ -47,36 +46,60 @@ router.get('/my-listing/:userId', async (req, res) => {
   }
 });
 
-// Route for Providers to submit a new shop request
+// POST: Register a NEW shop
 router.post('/register', async (req, res) => {
-  // UPDATED: Added gender and experience to the destructured body!
   const { 
     ownerId, name, shopType, description, price, 
-    gender, experience, address, phone, lat, lng, isSosEnabled 
+    gender, experience, address, phone, lat, lng, isSosEnabled,
+    photo, website, catalog // <--- ADDED CATALOG HERE
   } = req.body;
 
   try {
     const newShop = await Shop.create({
-      owner: ownerId,
-      name,
-      shopType,
-      description, 
-      price,       
-      gender,      // Saved to DB
-      experience,  // Saved to DB
-      address,
-      phone,
+      owner: ownerId, name, shopType, description, price,       
+      gender, experience, address, phone, photo, website,     
       isSosEnabled: isSosEnabled || false,
+      catalog: catalog || [], // <--- ADDED CATALOG HERE
       location: {
         type: 'Point',
-        // Fallback to Kolkata coordinates if lat/lng are missing so MongoDB doesn't crash
         coordinates: [parseFloat(lng) || 88.3639, parseFloat(lat) || 22.5726] 
       }
     });
-    
-    res.status(201).json({ message: "Shop request submitted for admin approval!", shop: newShop });
+    res.status(201).json({ message: "Shop request submitted!", shop: newShop });
   } catch (error) {
-    res.status(400).json({ message: "Failed to register shop", error: error.message });
+    console.error("Register Error:", error);
+    res.status(400).json({ message: "Failed to register", error: error.message });
+  }
+});
+
+// PUT route to UPDATE an existing shop!
+router.put('/update/:shopId', async (req, res) => {
+  const { 
+    name, shopType, description, price, 
+    gender, experience, address, phone, lat, lng, isSosEnabled,
+    photo, website, catalog // <--- ADDED CATALOG HERE
+  } = req.body;
+
+  try {
+    const updatedShop = await Shop.findByIdAndUpdate(
+      req.params.shopId,
+      {
+        name, shopType, description, price,       
+        gender, experience, address, phone, photo, website,     
+        isSosEnabled: isSosEnabled || false,
+        catalog: catalog || [], // <--- ADDED CATALOG HERE
+        status: 'Pending', // Automatically sends them back to Admin for review!
+        location: {
+          type: 'Point',
+          coordinates: [parseFloat(lng) || 88.3639, parseFloat(lat) || 22.5726] 
+        }
+      },
+      { returnDocument: 'after' }
+    );
+    res.json({ message: "Profile updated and re-submitted for review!", shop: updatedShop });
+  } catch (error) {
+    console.error("Update Error:", error);
+    res.status(400).json({ message: "Failed to update", error: error.message });
   }
 });
 

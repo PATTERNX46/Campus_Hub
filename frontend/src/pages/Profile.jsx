@@ -76,7 +76,6 @@ const NavItem = styled.li`
     background: #fafafa;
   }
 
-  /* Special styling for the logout button */
   ${(props) => props.isLogout && `
     color: #e74c3c;
     border-bottom: none;
@@ -138,9 +137,12 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('info'); 
   
-  // NEW STATE: To hold the fetched OCR notes
   const [savedNotes, setSavedNotes] = useState([]); 
   const [loadingNotes, setLoadingNotes] = useState(false);
+
+  // For Order History
+  const [studentOrders, setStudentOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Fetch basic profile info on load
   useEffect(() => {
@@ -162,7 +164,7 @@ const Profile = () => {
     fetchProfile();
   }, []);
 
-  // NEW EFFECT: Fetch saved notes only when the user clicks the "notes" tab
+  // Fetch saved notes only when the user clicks the "notes" tab
   useEffect(() => {
     if (activeTab === 'notes') {
       const fetchNotes = async () => {
@@ -180,6 +182,27 @@ const Profile = () => {
         }
       };
       fetchNotes();
+    }
+  }, [activeTab]);
+
+  // Fetch order history only when the user clicks the "orders" tab
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      const fetchOrders = async () => {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo'));
+        if (userInfo && userInfo._id) {
+          setLoadingOrders(true);
+          try {
+            const { data } = await API.get(`/orders/student/${userInfo._id}`);
+            setStudentOrders(data);
+          } catch (error) {
+            console.error("Failed to fetch orders", error);
+          } finally {
+            setLoadingOrders(false);
+          }
+        }
+      };
+      fetchOrders();
     }
   }, [activeTab]);
 
@@ -209,7 +232,6 @@ const Profile = () => {
             👤 Personal Information
           </NavItem>
           
-          {/* NEW TAB: My Saved Notes */}
           <NavItem active={activeTab === 'notes'} onClick={() => setActiveTab('notes')}>
             📄 My Saved Notes
           </NavItem>
@@ -217,9 +239,11 @@ const Profile = () => {
           <NavItem active={activeTab === 'orders'} onClick={() => setActiveTab('orders')}>
             📦 My Orders & Bookings
           </NavItem>
+
           <NavItem active={activeTab === 'listings'} onClick={() => setActiveTab('listings')}>
             🏷️ My Marketplace Listings
           </NavItem>
+
           <NavItem active={activeTab === 'security'} onClick={() => setActiveTab('security')}>
             🔐 Security & Settings
           </NavItem>
@@ -268,7 +292,7 @@ const Profile = () => {
           </>
         )}
 
-        {/* NEW CONTENT SECTION: Saved PDF Documents */}
+        {/* Saved PDF Documents */}
         {activeTab === 'notes' && (
           <>
             <SectionTitle>📄 My Saved PDF Documents</SectionTitle>
@@ -294,7 +318,6 @@ const Profile = () => {
                       Generated on {new Date(note.createdAt).toLocaleDateString()}
                     </span>
                     
-                    {/* The Download Button using the Base64 String */}
                     <a 
                       href={note.pdfBase64} 
                       download={`${note.title}.pdf`}
@@ -324,10 +347,71 @@ const Profile = () => {
           </>
         )}
 
+        {/* UPDATED: Student Order History Table with Approval Status */}
         {activeTab === 'orders' && (
           <>
-            <SectionTitle>My Orders & Bookings</SectionTitle>
-            <p style={{ color: '#888' }}>You have no recent orders. Start exploring Ghar Ka Khana or Services!</p>
+            <SectionTitle>📦 My Orders & Bookings</SectionTitle>
+            {loadingOrders ? (
+              <p style={{ color: '#888' }}>Loading your order history...</p>
+            ) : studentOrders.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f2f6', color: '#2d3436' }}>
+                      <th style={{ padding: '12px', borderTopLeftRadius: '8px' }}>Date</th>
+                      <th style={{ padding: '12px' }}>Provider Name</th>
+                      <th style={{ padding: '12px' }}>Service / Item</th>
+                      <th style={{ padding: '12px' }}>Amount Paid</th>
+                      <th style={{ padding: '12px' }}>Payment Status</th>
+                      <th style={{ padding: '12px', borderTopRightRadius: '8px' }}>Provider Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {studentOrders.map(order => (
+                      <tr key={order._id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '12px', color: '#636e72', fontSize: '0.9rem' }}>
+                          {new Date(order.createdAt).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '12px', fontWeight: 'bold' }}>
+                          {order.provider?.name || 'Unknown Provider'}
+                        </td>
+                        <td style={{ padding: '12px' }}>{order.serviceName}</td>
+                        <td style={{ padding: '12px', color: '#e74c3c', fontWeight: 'bold' }}>₹{order.amount}</td>
+                        
+                        {/* PAYMENT STATUS */}
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ 
+                            background: order.status === 'Paid - Awaiting Service' ? '#d4edda' : '#fff3cd', 
+                            color: order.status === 'Paid - Awaiting Service' ? '#155724' : '#856404', 
+                            padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {order.status}
+                          </span>
+                        </td>
+
+                        {/* NEW: PROVIDER APPROVAL STATUS */}
+                        <td style={{ padding: '12px' }}>
+                          <span style={{ 
+                            background: order.approvalStatus === 'Accepted' ? '#d4edda' : order.approvalStatus === 'Rejected' ? '#f8d7da' : '#e2e3e5', 
+                            color: order.approvalStatus === 'Accepted' ? '#155724' : order.approvalStatus === 'Rejected' ? '#721c24' : '#383d41', 
+                            padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {order.approvalStatus || 'Pending Approval'}
+                          </span>
+                        </td>
+
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p style={{ color: '#888', padding: '2rem', background: '#f8f9fa', borderRadius: '8px' }}>
+                You have no recent orders. Start exploring Ghar Ka Khana or Services!
+              </p>
+            )}
           </>
         )}
 

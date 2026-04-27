@@ -2,7 +2,6 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const authRoutes = require('./routes/authRoutes');
 
 // Load env vars
 dotenv.config();
@@ -14,22 +13,20 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// Limit set to 50mb to handle large Base64 photo uploads from Providers!
 app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true })); // Parses incoming JSON requests
-// Mount Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes')); // Add this line
-// Mount Routes
+app.use(express.urlencoded({ limit: '50mb', extended: true })); 
+
+// Mount Routes (Cleaned up duplicates!)
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/food', require('./routes/foodRoutes'));
 app.use('/api/shop', require('./routes/shopRoutes'));
-app.use('/api/ocr', require('./routes/ocrRoutes')); // ADD THIS LINE
+app.use('/api/ocr', require('./routes/ocrRoutes'));
 app.use('/api/notes', require('./routes/noteRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
-
-// Mount Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/orders', require('./routes/orderRoutes')); // <--- ADD THIS LINE
 
 const PORT = process.env.PORT || 5000;
 

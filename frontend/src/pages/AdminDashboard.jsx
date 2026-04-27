@@ -80,25 +80,34 @@ const AdminDashboard = () => {
     fetchPendingRequests();
   }, []);
 
-  // Handle Approving a Shop
+  // UPDATED: Handle Approving a Shop with Custom Message
   const handleApprove = async (shopId) => {
-    if (!window.confirm("Are you sure you want to approve this provider? They will go live immediately.")) return;
+    const message = window.prompt("Enter an approval message for the provider:");
+    if (message === null) return; // Admin clicked cancel
     
     try {
-      await API.put(`/admin/approve-shop/${shopId}`);
-      // Remove the approved shop from the screen
+      // Send the custom message in the request body
+      await API.put(`/admin/approve-shop/${shopId}`, { message });
       setPendingShops(pendingShops.filter(shop => shop._id !== shopId));
-      alert("Provider Approved! They are now live on the platform.");
+      alert("Provider Approved! Message sent.");
     } catch (error) {
       alert("Error approving provider.");
     }
   };
 
-  // Handle Rejecting a Shop
+  // UPDATED: Handle Rejecting a Shop with Custom Message
   const handleReject = async (shopId) => {
-    if (!window.confirm("Reject this application?")) return;
-    alert("Rejection logic would go here (e.g., delete the shop request or mark status as 'Rejected').");
-    // You can add a similar PUT route for rejection later!
+    const message = window.prompt("Reason for rejection? (Provider will see this):");
+    if (message === null) return; // Admin clicked cancel
+
+    try {
+      // Send the custom rejection message
+      await API.put(`/admin/reject-shop/${shopId}`, { message });
+      setPendingShops(pendingShops.filter(shop => shop._id !== shopId));
+      alert("Provider application rejected.");
+    } catch (error) {
+      alert("Error rejecting provider.");
+    }
   };
 
   return (
@@ -111,30 +120,51 @@ const AdminDashboard = () => {
       ) : pendingShops.length > 0 ? (
         pendingShops.map((shop) => (
           <RequestCard key={shop._id}>
-            <ProviderInfo>
-              <span className="badge">{shop.shopType}</span>
-              <h3>{shop.name}</h3>
+            
+            {/* Wrapper to align photo and text side-by-side */}
+            <div style={{ display: 'flex', gap: '1.5rem', flex: 1, alignItems: 'center', flexWrap: 'wrap' }}>
               
-              {/* NEW: Display Gender and Experience */}
-              {(shop.gender || shop.experience) && (
-                <div style={{ display: 'flex', gap: '10px', margin: '8px 0' }}>
-                  {shop.gender && <span style={{ background: '#f1f2f6', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', color: '#2d3436' }}>👤 {shop.gender}</span>}
-                  {shop.experience && <span style={{ background: '#f1f2f6', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', color: '#2d3436' }}>⭐ {shop.experience}</span>}
-                </div>
+              {/* NEW: Display Provider Photo if it exists */}
+              {shop.photo && (
+                <img 
+                  src={shop.photo} 
+                  alt="Provider ID" 
+                  style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd' }}
+                />
               )}
 
-              <p><b>Description:</b> {shop.description}</p>
-              <p><b>Pricing:</b> {shop.price}</p>
-              <p><b>Contact:</b> {shop.phone} | <b>Address:</b> {shop.address}</p>
-              <p style={{ fontSize: '0.85rem', color: '#b2bec3', marginTop: '10px' }}>
-                Requested by User ID: {shop.owner?._id || shop.owner}
-              </p>
-            </ProviderInfo>
+              <ProviderInfo>
+                <span className="badge">{shop.shopType}</span>
+                <h3>{shop.name}</h3>
+                
+                {/* Display Gender and Experience */}
+                {(shop.gender || shop.experience) && (
+                  <div style={{ display: 'flex', gap: '10px', margin: '8px 0' }}>
+                    {shop.gender && <span style={{ background: '#f1f2f6', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', color: '#2d3436' }}>👤 {shop.gender}</span>}
+                    {shop.experience && <span style={{ background: '#f1f2f6', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', color: '#2d3436' }}>⭐ {shop.experience}</span>}
+                  </div>
+                )}
+
+                <p><b>Description:</b> {shop.description}</p>
+                <p><b>Pricing:</b> {shop.price}</p>
+                <p><b>Contact:</b> {shop.phone} | <b>Address:</b> {shop.address}</p>
+                
+                {/* NEW: Display Website Link if it exists */}
+                {shop.website && (
+                  <p><b>Website:</b> <a href={shop.website} target="_blank" rel="noreferrer" style={{ color: '#2980b9' }}>{shop.website}</a></p>
+                )}
+
+                <p style={{ fontSize: '0.85rem', color: '#b2bec3', marginTop: '10px' }}>
+                  Requested by User ID: {shop.owner?._id || shop.owner}
+                </p>
+              </ProviderInfo>
+            </div>
 
             <ActionButtons>
               <Button onClick={() => handleReject(shop._id)}>❌ Reject</Button>
               <Button approve onClick={() => handleApprove(shop._id)}>✅ Approve</Button>
             </ActionButtons>
+
           </RequestCard>
         ))
       ) : (

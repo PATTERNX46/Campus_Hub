@@ -54,6 +54,7 @@ const Button = styled.button`
   cursor: pointer;
   transition: opacity 0.2s;
   &:hover { opacity: 0.9; }
+  &:disabled { background: #ccc; cursor: not-allowed; }
 `;
 
 const ToggleText = styled.p`
@@ -71,7 +72,14 @@ const ErrorMsg = styled.p`
   margin: 0;
 `;
 
-// NEW: Styled component for the Admin Secret box
+const SuccessMsg = styled.p`
+  color: #27ae60;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0;
+  font-weight: bold;
+`;
+
 const SecretBox = styled.div`
   background: #fff3cd;
   padding: 1rem;
@@ -82,30 +90,61 @@ const SecretBox = styled.div`
   gap: 8px;
 `;
 
+const OTPContainer = styled.div`
+  display: flex;
+  gap: 10px;
+`;
+
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(false);
   
-  // UPDATED: Added adminSecret to the initial state
   const [formData, setFormData] = useState({ 
     name: '', 
     email: '', 
     password: '', 
     role: 'Normal',
-    adminSecret: '' 
+    adminSecret: '',
+    otp: ''
   });
+  
   const [error, setError] = useState('');
+  
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSendOtp = async () => {
+    if (!formData.email) {
+      setError('Please enter your email address first.');
+      return;
+    }
+    
+    setSendingOtp(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      // FIXED: Switched back to /auth/send-otp
+      const { data } = await API.post('/auth/send-otp', { email: formData.email });
+      setSuccessMsg(data.message || 'OTP sent successfully! Check your inbox.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
 
     try {
       if (isLogin) {
-        // Hitting your existing backend login route
+        // FIXED: Switched back to /auth/login
         const { data } = await API.post('/auth/login', { 
           email: formData.email, 
           password: formData.password 
@@ -113,13 +152,13 @@ const Auth = () => {
         
         localStorage.setItem('userInfo', JSON.stringify(data));
         alert(`Login Successful! Welcome back, ${data.name}`);
-        window.location.href = '/dashboard'; // UPDATED: Redirect to dashboard
+        window.location.href = '/'; 
       } else {
-        // Hitting your existing backend register route
+        // FIXED: Switched back to /auth/register
         const { data } = await API.post('/auth/register', formData);
         localStorage.setItem('userInfo', JSON.stringify(data));
         alert(`Registration Successful! Welcome to CampusHub as a ${data.role}`);
-        window.location.href = '/dashboard'; // UPDATED: Redirect to dashboard
+        window.location.href = '/'; 
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong');
@@ -130,7 +169,9 @@ const Auth = () => {
     <Container>
       <AuthCard>
         <Title>{isLogin ? 'Welcome Back' : 'Join CampusHub'}</Title>
+        
         {error && <ErrorMsg>{error}</ErrorMsg>}
+        {successMsg && <SuccessMsg>{successMsg}</SuccessMsg>}
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {!isLogin && (
@@ -141,11 +182,9 @@ const Auth = () => {
                 <option value="Normal">Normal User</option>
                 <option value="Student">Student (Requires .edu / .ac.in email)</option>
                 <option value="ServiceProvider">Service Provider</option>
-                {/* NEW: Admin Option */}
                 <option value="Admin">Administrator</option>
               </Select>
 
-              {/* NEW: DYNAMIC SECURITY FIELD - Only shows if they select Admin */}
               {formData.role === 'Admin' && (
                 <SecretBox>
                   <label style={{ fontSize: '0.85rem', color: '#856404', fontWeight: 'bold' }}>
@@ -164,12 +203,39 @@ const Auth = () => {
           )}
           
           <Input type="email" name="email" placeholder="Email Address" onChange={handleChange} required />
+          
+          {!isLogin && (
+            <OTPContainer>
+              <Input 
+                type="text" 
+                name="otp" 
+                placeholder="6-Digit OTP" 
+                onChange={handleChange} 
+                maxLength="6"
+                required 
+                style={{ flex: 1 }} 
+              />
+              <Button 
+                type="button" 
+                onClick={handleSendOtp} 
+                disabled={sendingOtp}
+                style={{ background: '#3498db', padding: '0 15px', whiteSpace: 'nowrap' }}
+              >
+                {sendingOtp ? 'Sending...' : 'Get OTP'}
+              </Button>
+            </OTPContainer>
+          )}
+
           <Input type="password" name="password" placeholder="Password" onChange={handleChange} required />
           
           <Button type="submit">{isLogin ? 'Login' : 'Register'}</Button>
         </form>
 
-        <ToggleText onClick={() => setIsLogin(!isLogin)}>
+        <ToggleText onClick={() => {
+          setIsLogin(!isLogin);
+          setError('');
+          setSuccessMsg('');
+        }}>
           {isLogin ? "Don't have an account? Register" : "Already have an account? Login"}
         </ToggleText>
       </AuthCard>
