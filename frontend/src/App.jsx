@@ -25,12 +25,21 @@ const Navbar = styled.nav`
   z-index: 100;
 `;
 
+// Updated Brand to act as an image container instead of text
 const Brand = styled(Link)`
+  display: flex;
+  align-items: center;
   text-decoration: none;
-  color: ${(props) => props.theme.colors.primary};
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+`;
+
+// FIXED: Added zooming and blending to fix the tiny logo!
+const LogoImg = styled.img`
+  height: 60px; /* Base height */
+  width: auto;
+  object-fit: contain;
+  transform: scale(1.6); /* Zooms in to cut out the white space */
+  transform-origin: left center; /* Keeps it locked to the left side */
+  mix-blend-mode: multiply; /* Makes the white background transparent */
 `;
 
 const SearchBar = styled.input`
@@ -84,8 +93,6 @@ const LogoutButton = styled.button`
   }
 `;
 
-// --- NEW: TOP NAV COMPONENT (THE SENDER) ---
-// We extracted this so it can safely use the 'useNavigate' hook inside the Router!
 const TopNav = ({ userInfo, handleLogout }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -111,12 +118,16 @@ const TopNav = ({ userInfo, handleLogout }) => {
 
   return (
     <Navbar>
-      <Brand to="/">CampusHub</Brand>
+      {/* Replaced CampusHub text with your new Orbito logo */}
+      <Brand to="/">
+        <LogoImg src="/orbito-logo.png" alt="Orbito Logo" />
+      </Brand>
       
+      {/* Updated placeholder text to match the new name */}
       <SearchBar 
-        placeholder="Search for food, books, services, or tutors..." 
+        placeholder="Search for food, books, services, or tutors on Orbito..." 
         value={searchTerm}
-        onChange={handleSearchChange} // Wired up!
+        onChange={handleSearchChange} 
       />
 
       <NavLinks>
@@ -148,7 +159,6 @@ function App() {
       <Router>
         <AppContainer>
           
-          {/* Replaced old Navbar with our new connected TopNav */}
           <TopNav userInfo={userInfo} handleLogout={handleLogout} />
 
           <Routes>
