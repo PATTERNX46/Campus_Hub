@@ -1,6 +1,5 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer'); // NEW: Added for sending emails
 const User = require('../models/User');
 const router = express.Router();
 
@@ -13,7 +12,7 @@ const generateToken = (id) => {
 };
 
 // ==========================================
-// NEW ROUTE: POST /api/auth/send-otp
+// BREVO ROUTE: POST /api/auth/send-otp
 // ==========================================
 router.post('/send-otp', async (req, res) => {
   try {
@@ -27,45 +26,50 @@ router.post('/send-otp', async (req, res) => {
     // It will expire in 5 minutes
     global.otpStore[email] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
-    // 3. Configure Gmail Transporter using your .env credentials
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-
-    // 4. Draft the email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
+    // 3. Package the email data for Brevo
+    const emailData = {
+      sender: { name: "CampusHub", email: process.env.EMAIL_USER }, // Ensure this email is verified in Brevo
+      to: [{ email: email }],
       subject: 'Your CampusHub Verification Code',
-      text: `Welcome to CampusHub! \n\nYour 6-digit OTP for registration is: ${otp}\n\nThis code will expire in 5 minutes.`
+      textContent: `Welcome to CampusHub! \n\nYour 6-digit OTP for registration is: ${otp}\n\nThis code will expire in 5 minutes.`
     };
 
-    // 5. Send it!
-    await transporter.sendMail(mailOptions);
-    console.log(`[Backend] OTP sent successfully to: ${email}`);
+    // 4. Send HTTP request to Brevo (Bypasses Render's Port 465 block!)
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(emailData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("[Backend] Brevo Error:", errorData);
+      return res.status(500).json({ message: "Failed to send email via Brevo. Check backend terminal." });
+    }
+
+    console.log(`[Backend] OTP sent successfully via Brevo to: ${email}`);
     res.status(200).json({ message: "OTP sent successfully! Check your inbox." });
 
   } catch (error) {
-    console.error("[Backend] OTP Error:", error);
-    res.status(500).json({ message: "Failed to send email. Check your backend terminal for details!" });
+    console.error("[Backend] OTP Catch Error:", error);
+    res.status(500).json({ message: "Server error while sending OTP." });
   }
 });
 
 // ==========================================
-// UPDATED ROUTE: POST /api/auth/register
+// EXISTING ROUTE: POST /api/auth/register
 // ==========================================
 router.post('/register', async (req, res) => {
-  // NEW: Added 'otp' to the destructured body
   const { name, email, password, role, otp } = req.body; 
   
   console.log(`[Backend] Registration attempt for: ${email}`);
 
   try {
-    // --- NEW: OTP VERIFICATION BLOCK ---
+    // --- OTP VERIFICATION BLOCK ---
     const storedOtpData = global.otpStore[email];
     
     if (!storedOtpData) {
